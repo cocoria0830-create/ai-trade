@@ -540,8 +540,9 @@ async function loadAllCoins() {
     renderCoinList();
 
     // 2단계: 전체 코인 목록 백그라운드 로드
-    const PROXY = 'https://corsproxy.io/?url=';
-    const res = await fetch(PROXY + encodeURIComponent('https://api.upbit.com/v1/market/all?isDetails=false'));
+    const PROXIES2 = ['https://api.allorigins.win/raw?url=','https://corsproxy.io/?url='];
+    const PROXY2 = PROXIES2[Math.floor(Math.random()*PROXIES2.length)];
+    const res = await fetch(PROXY2 + encodeURIComponent('https://api.upbit.com/v1/market/all?isDetails=false'));
     const data = await res.json();
     const allCoins = data
       .filter(m => m.market.startsWith('KRW-'))
@@ -1365,9 +1366,16 @@ async function fetchTickers() {
   if (!COINS_LOADED) return;
   try {
     // 주요 코인 20개 먼저 빠르게 (차트/AI분석용)
-    // CORS 프록시 (GitHub Pages에서 업비트 직접 호출 막힘 해결)
-    const PROXY = 'https://corsproxy.io/?url=';
+    // CORS 프록시 로테이션
     const UPBIT = 'https://api.upbit.com';
+    const PROXIES = [
+      'https://api.allorigins.win/raw?url=',
+      'https://corsproxy.io/?url=',
+      'https://api.codetabs.com/v1/proxy?quest='
+    ];
+    if (!window._proxyIdx) window._proxyIdx = 0;
+    const PROXY = PROXIES[window._proxyIdx % PROXIES.length];
+    window._proxyIdx++;
     const majorRes = await fetch(PROXY + encodeURIComponent(UPBIT + '/v1/ticker?markets=' + MAJOR_COINS.join(',')));
     if (majorRes.ok) {
       const majorData = await majorRes.json();
@@ -1480,9 +1488,13 @@ handleResize(); // 초기 실행
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
+    // GitHub Pages 경로에 맞게 수정
+    const swPath = location.pathname.includes('/ai-trade/') 
+      ? '/ai-trade/sw.js' 
+      : '/sw.js';
+    navigator.serviceWorker.register(swPath)
       .then(() => console.log('AI.TRADE PWA 준비 완료!'))
-      .catch(err => console.log('SW 등록 실패:', err));
+      .catch(err => console.log('SW 등록 실패 (무시 가능):', err));
   });
 }
 </script>

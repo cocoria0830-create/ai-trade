@@ -2,7 +2,7 @@
   "name": "AI.TRADE 자동매매",
   "short_name": "AI.TRADE",
   "description": "업비트 실시간 AI 자동매매 대시보드",
-  "start_url": "/ai_trading_smart.html",
+  "start_url": "/ai-trade/ai_trading_smart.html",
   "display": "standalone",
   "background_color": "#0a0e1a",
   "theme_color": "#00d4ff",
