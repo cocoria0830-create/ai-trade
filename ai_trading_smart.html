@@ -100,6 +100,10 @@
   .amt-btn{padding:6px 9px;border-radius:5px;border:1px solid var(--border);background:var(--bg3);color:var(--muted);font-family:var(--font-mono);font-size:11px;cursor:pointer;transition:all .15s;}
   .amt-btn:hover{background:var(--bg2);border-color:var(--accent);}
 
+  /* 당겨서 새로고침 방지 */
+  html { overscroll-behavior: none; }
+  body { overscroll-behavior: none; }
+
   /* ── 모바일 반응형 ── */
   @media (max-width: 768px) {
     header { padding:10px 14px; }
@@ -518,25 +522,39 @@
 let COINS = [];
 let COINS_LOADED = false;
 
+// 주요 코인 20개 (빠른 로딩용)
+const MAJOR_COINS = [
+  'KRW-BTC','KRW-ETH','KRW-XRP','KRW-SOL','KRW-DOGE',
+  'KRW-ADA','KRW-TRX','KRW-AVAX','KRW-SHIB','KRW-DOT',
+  'KRW-MATIC','KRW-LINK','KRW-ATOM','KRW-UNI','KRW-LTC',
+  'KRW-ETC','KRW-BCH','KRW-APT','KRW-OP','KRW-ARB'
+];
+
 async function loadAllCoins() {
   try {
+    // 1단계: 주요 코인 20개 먼저 즉시 표시
+    COINS = [...MAJOR_COINS];
+    COINS_LOADED = true;
+    COINS.forEach(c => { if (!priceHistory[c]) priceHistory[c] = []; });
+    renderCoinList();
+
+    // 2단계: 전체 코인 목록 백그라운드 로드
     const res = await fetch('https://api.upbit.com/v1/market/all?isDetails=false');
     const data = await res.json();
-    // KRW 마켓만 필터링
-    COINS = data
+    const allCoins = data
       .filter(m => m.market.startsWith('KRW-'))
       .map(m => m.market);
-    COINS_LOADED = true;
-    console.log('전체 코인 로드:', COINS.length + '개');
-    // priceHistory 초기화
+    // 주요 코인 제외하고 나머지 추가
+    const extraCoins = allCoins.filter(c => !MAJOR_COINS.includes(c));
+    COINS = [...MAJOR_COINS, ...extraCoins];
     COINS.forEach(c => { if (!priceHistory[c]) priceHistory[c] = []; });
-    // 왼쪽 패널 코인 목록 렌더링
     renderCoinList();
+    console.log('전체 코인 로드 완료:', COINS.length + '개');
   } catch(e) {
     console.error('코인 목록 로드 실패:', e);
-    // 실패 시 기본 6개로 폴백
-    COINS = ['KRW-BTC','KRW-ETH','KRW-XRP','KRW-SOL','KRW-DOGE','KRW-ADA'];
+    COINS = MAJOR_COINS;
     COINS.forEach(c => { if (!priceHistory[c]) priceHistory[c] = []; });
+    COINS_LOADED = true;
     renderCoinList();
   }
 }
@@ -828,7 +846,26 @@ function drawChart() {
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
   const prices = priceHistory[selectedCoin];
-  if (prices.length < 2) return;
+  if (prices.length < 1) return;
+  if (prices.length === 1) {
+    // 데이터 1개면 점만 표시
+    const canvas = document.getElementById('mainChart');
+    if (!canvas) return;
+    canvas.width = canvas.offsetWidth * window.devicePixelRatio;
+    canvas.height = 200 * window.devicePixelRatio;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    ctx.clearRect(0, 0, canvas.offsetWidth, 200);
+    ctx.fillStyle = '#00d4ff';
+    ctx.beginPath();
+    ctx.arc(canvas.offsetWidth/2, 100, 6, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = '#64748b';
+    ctx.font = '12px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('데이터 수집중... (' + prices.length + '/2)', canvas.offsetWidth/2, 130);
+    return;
+  }
 
   canvas.width = canvas.offsetWidth * window.devicePixelRatio;
   canvas.height = 200 * window.devicePixelRatio;
@@ -1325,9 +1362,25 @@ function renderCoinList() {
 async function fetchTickers() {
   if (!COINS_LOADED) return;
   try {
-    // 업비트 API는 한번에 최대 100개 → 배치 처리
+    // 주요 코인 20개 먼저 빠르게 (차트/AI분석용)
+    const majorRes = await fetch('https://api.upbit.com/v1/ticker?markets=' + MAJOR_COINS.join(','));
+    if (majorRes.ok) {
+      const majorData = await majorRes.json();
+      majorData.forEach(ticker => {
+        const prev = priceData[ticker.market];
+        priceData[ticker.market] = ticker;
+        if (!priceHistory[ticker.market]) priceHistory[ticker.market] = [];
+        priceHistory[ticker.market].push(ticker.trade_price);
+        if (priceHistory[ticker.market].length > 100) priceHistory[ticker.market].shift();
+        updateCoinCard(ticker, prev);
+      });
+      if (priceData[selectedCoin]) updateDetail(priceData[selectedCoin]);
+      drawChart();
+    }
+
+    // 나머지 코인들 백그라운드에서 처리
     const BATCH = 100;
-    for (let i = 0; i < COINS.length; i += BATCH) {
+    for (let i = MAJOR_COINS.length; i < COINS.length; i += BATCH) {
       const batch = COINS.slice(i, i + BATCH);
       const res = await fetch('https://api.upbit.com/v1/ticker?markets=' + batch.join(','));
       if (!res.ok) continue;
