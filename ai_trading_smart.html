@@ -1,0 +1,1432 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>AI TRADE — 스마트 분석</title>
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AI.TRADE">
+<meta name="theme-color" content="#00d4ff">
+<link rel="manifest" href="manifest.json">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0a0e1a; --bg2:#111827; --bg3:#1a2235; --border:#1e2d45;
+    --accent:#00d4ff; --accent2:#7c3aed;
+    --green:#10b981; --red:#ef4444; --yellow:#f59e0b; --orange:#f97316;
+    --text:#e2e8f0; --muted:#64748b;
+    --font-mono:'Space Mono',monospace; --font-main:'Noto Sans KR',sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:var(--font-main);font-size:14px;}
+  body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;
+    background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,212,255,0.012) 2px,rgba(0,212,255,0.012) 4px);}
+
+  /* 헤더 */
+  header{display:flex;align-items:center;justify-content:space-between;
+    padding:14px 28px;border-bottom:1px solid var(--border);
+    background:rgba(10,14,26,0.97);position:sticky;top:0;z-index:100;}
+  .logo{font-family:var(--font-mono);font-size:17px;letter-spacing:3px;color:var(--accent);}
+  .logo em{color:var(--accent2);font-style:normal;}
+  .hdr-right{display:flex;align-items:center;gap:20px;}
+  .live-badge{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11px;color:var(--green);letter-spacing:2px;}
+  .live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.5s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(16,185,129,0.5)}50%{opacity:.7;box-shadow:0 0 0 5px rgba(16,185,129,0)}}
+
+  /* 레이아웃 */
+  .main{display:grid;grid-template-columns:290px 1fr 330px;height:calc(100vh - 57px);}
+
+  /* 왼쪽 */
+  .left{border-right:1px solid var(--border);background:var(--bg2);overflow-y:auto;}
+  .panel-title{padding:11px 16px;font-family:var(--font-mono);font-size:10px;letter-spacing:3px;color:var(--muted);border-bottom:1px solid var(--border);text-transform:uppercase;}
+
+  .pf-wrap{padding:12px 16px;border-bottom:1px solid var(--border);}
+  .pf-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+  .pf-item{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:9px;}
+  .pf-label{font-size:10px;color:var(--muted);font-family:var(--font-mono);letter-spacing:1px;margin-bottom:3px;}
+  .pf-value{font-family:var(--font-mono);font-size:14px;font-weight:700;}
+
+  .coin-card{padding:13px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;position:relative;}
+  .coin-card:hover{background:var(--bg3);}
+  .coin-card.active{background:var(--bg3);}
+  .coin-card.active::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);}
+  .coin-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+  .coin-name{font-weight:700;font-size:13px;}
+  .coin-price{font-family:var(--font-mono);font-size:12px;}
+  .coin-mid{display:flex;justify-content:space-between;margin-bottom:5px;}
+  .coin-badge{font-size:10px;padding:2px 6px;border-radius:3px;font-family:var(--font-mono);background:rgba(245,158,11,0.1);color:var(--yellow);border:1px solid rgba(245,158,11,0.2);}
+  .coin-change{font-family:var(--font-mono);font-size:11px;}
+  .pos{color:var(--green);} .neg{color:var(--red);} .neu{color:var(--muted);}
+
+  /* AI 신호 바 */
+  .signal-bar{display:flex;align-items:center;gap:6px;margin-top:5px;}
+  .signal-label{font-size:10px;font-family:var(--font-mono);letter-spacing:1px;min-width:36px;}
+  .signal-track{flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+  .signal-fill{height:100%;border-radius:2px;transition:width .6s ease;}
+  .fill-buy{background:var(--green);}
+  .fill-sell{background:var(--red);}
+  .fill-hold{background:var(--yellow);}
+
+  @keyframes flash-green{0%,100%{background:transparent}50%{background:rgba(16,185,129,0.18)}}
+  @keyframes flash-red{0%,100%{background:transparent}50%{background:rgba(239,68,68,0.18)}}
+  .flash-up{animation:flash-green .4s ease;}
+  .flash-down{animation:flash-red .4s ease;}
+
+  /* 중앙 */
+  .center{overflow-y:auto;background:var(--bg);}
+  .coin-hdr{padding:18px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;}
+  .hdr-name{font-size:20px;font-weight:700;margin-bottom:3px;}
+  .hdr-price{font-family:var(--font-mono);font-size:30px;font-weight:700;color:var(--accent);}
+  .hdr-change{font-size:12px;margin-top:3px;}
+
+  .chart-wrap{padding:18px 24px;border-bottom:1px solid var(--border);}
+  .chart-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+  .chart-legend{display:flex;gap:14px;font-family:var(--font-mono);font-size:10px;}
+  .leg-item{display:flex;align-items:center;gap:5px;}
+  .leg-dot{width:8px;height:3px;border-radius:2px;}
+  canvas{width:100%;height:200px;display:block;}
+
+  /* 지표 그리드 */
+  .ind-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:16px 24px;border-bottom:1px solid var(--border);}
+  .ind-box{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:11px;text-align:center;}
+  .ind-lbl{font-size:10px;color:var(--muted);font-family:var(--font-mono);margin-bottom:4px;}
+  .ind-val{font-family:var(--font-mono);font-size:15px;font-weight:700;}
+  .ind-sub{font-size:10px;color:var(--muted);margin-top:2px;}
+
+  /* 매매 버튼 */
+  .trade-wrap{padding:16px 24px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:center;}
+  .amt-btn{padding:6px 9px;border-radius:5px;border:1px solid var(--border);background:var(--bg3);color:var(--muted);font-family:var(--font-mono);font-size:11px;cursor:pointer;transition:all .15s;}
+  .amt-btn:hover{background:var(--bg2);border-color:var(--accent);}
+
+  /* ── 모바일 반응형 ── */
+  @media (max-width: 768px) {
+    header { padding:10px 14px; }
+    .logo { font-size:14px; letter-spacing:2px; }
+    .hdr-right { gap:10px; }
+    .last-update { display:none; }
+
+    /* 3단 → 1단 세로 스택 */
+    .main {
+      display:block;
+      height:auto;
+      overflow-y:auto;
+    }
+    .left, .center, .right {
+      border:none;
+      border-bottom:1px solid var(--border);
+      height:auto;
+      overflow:visible;
+    }
+
+    /* 탭 네비게이션 */
+    .mobile-tabs {
+      display:flex;
+      position:sticky;
+      top:57px;
+      z-index:50;
+      background:var(--bg2);
+      border-bottom:1px solid var(--border);
+    }
+    .mobile-tab {
+      flex:1;
+      padding:10px 4px;
+      text-align:center;
+      font-family:var(--font-mono);
+      font-size:11px;
+      letter-spacing:1px;
+      color:var(--muted);
+      cursor:pointer;
+      border-bottom:2px solid transparent;
+      transition:all .2s;
+    }
+    .mobile-tab.active {
+      color:var(--accent);
+      border-bottom:2px solid var(--accent);
+    }
+    .mobile-panel { display:none; }
+    .mobile-panel.active { display:block; }
+
+    /* 포트폴리오 그리드 */
+    .pf-grid { grid-template-columns:1fr 1fr; gap:6px; }
+    .pf-value { font-size:13px; }
+
+    /* 차트 높이 */
+    #mainChart { height:160px; }
+
+    /* 지표 그리드 2x2 */
+    .ind-grid { grid-template-columns:repeat(2,1fr); }
+
+    /* 매매 버튼 크게 */
+    .trade-btn { font-size:15px; padding:14px; }
+    .trade-wrap { flex-direction:column; gap:8px; }
+    .trade-wrap .trade-amount { text-align:center; }
+
+    /* 매매 내역 컬럼 조정 */
+    .history-row { grid-template-columns:60px 40px 1fr 80px 65px; font-size:11px; gap:4px; }
+
+    /* AI 분석 카드 */
+    .ai-card { margin:8px; }
+
+    /* 코인 목록 높이 고정 */
+    #coin-list-container { max-height:40vh; overflow-y:auto; }
+
+    /* 투자금액 버튼 줄바꿈 */
+    .amt-btn { padding:8px 10px; font-size:12px; }
+  }
+  .trade-btn{flex:1;padding:11px;border-radius:6px;border:none;font-family:var(--font-mono);font-size:13px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:opacity .2s;}
+  .btn-buy{background:var(--green);color:#000;}
+  .btn-sell{background:var(--red);color:#fff;}
+  .btn-buy:hover,.btn-sell:hover{opacity:.85;}
+  .trade-amount{font-family:var(--font-mono);font-size:12px;color:var(--muted);}
+
+  /* 매매 내역 */
+  .history-wrap{padding:16px 24px;}
+  .history-title{font-family:var(--font-mono);font-size:10px;letter-spacing:3px;color:var(--muted);margin-bottom:12px;}
+  .history-row{display:grid;grid-template-columns:68px 44px 1fr 90px 72px;gap:6px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;}
+  .h-time{font-family:var(--font-mono);font-size:10px;color:var(--muted);}
+  .h-price{font-family:var(--font-mono);text-align:right;}
+  .h-pnl{font-family:var(--font-mono);text-align:right;}
+  .badge{padding:3px 8px;border-radius:3px;font-family:var(--font-mono);font-size:10px;letter-spacing:1px;text-align:center;}
+  .badge-buy{background:rgba(16,185,129,0.15);color:var(--green);border:1px solid rgba(16,185,129,0.3);}
+  .badge-sell{background:rgba(239,68,68,0.15);color:var(--red);border:1px solid rgba(239,68,68,0.3);}
+
+  /* 오른쪽: AI 분석 */
+  .right{border-left:1px solid var(--border);background:var(--bg2);overflow-y:auto;}
+
+  .ai-card{margin:12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+  .ai-card-hdr{padding:11px 14px;background:linear-gradient(135deg,rgba(0,212,255,0.07),rgba(124,58,237,0.07));border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;}
+  .ai-card-title{font-family:var(--font-mono);font-size:10px;letter-spacing:2px;color:var(--accent);}
+  .ai-card-body{padding:14px;}
+
+  /* AI 결정 */
+  .ai-decision-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .ai-decision{font-family:var(--font-mono);font-size:22px;font-weight:700;letter-spacing:2px;}
+  .ai-score-wrap{text-align:right;}
+  .ai-score{font-family:var(--font-mono);font-size:24px;font-weight:700;}
+  .ai-score-lbl{font-size:10px;color:var(--muted);font-family:var(--font-mono);}
+
+  /* 지표별 신호 */
+  .sig-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);}
+  .sig-row:last-child{border:none;}
+  .sig-name{font-size:12px;color:var(--muted);}
+  .sig-val{font-family:var(--font-mono);font-size:12px;}
+  .sig-tag{font-size:10px;padding:2px 8px;border-radius:3px;font-family:var(--font-mono);letter-spacing:1px;}
+  .tag-buy{background:rgba(16,185,129,0.15);color:var(--green);}
+  .tag-sell{background:rgba(239,68,68,0.15);color:var(--red);}
+  .tag-hold{background:rgba(245,158,11,0.15);color:var(--yellow);}
+
+  /* RSI 게이지 */
+  .rsi-gauge{margin:10px 0;}
+  .rsi-track{height:8px;background:linear-gradient(90deg,var(--green) 0%,var(--green) 30%,var(--yellow) 30%,var(--yellow) 70%,var(--red) 70%);border-radius:4px;position:relative;margin-bottom:4px;}
+  .rsi-thumb{position:absolute;top:-4px;width:16px;height:16px;border-radius:50%;background:var(--accent);border:2px solid var(--bg);transform:translateX(-50%);transition:left .6s ease;}
+  .rsi-labels{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:10px;color:var(--muted);}
+
+  /* MA 크로스 시각화 */
+  .ma-visual{display:flex;gap:10px;margin:10px 0;}
+  .ma-item{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:9px;text-align:center;}
+  .ma-lbl{font-size:10px;color:var(--muted);font-family:var(--font-mono);margin-bottom:3px;}
+  .ma-val{font-family:var(--font-mono);font-size:13px;font-weight:700;}
+
+  ::-webkit-scrollbar{width:4px;}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">AI<em>.</em>TRADE <span style="font-size:11px;color:var(--muted);letter-spacing:1px;">스마트 분석</span></div>
+  <div class="hdr-right">
+    <div class="live-badge"><div class="live-dot"></div> UPBIT LIVE</div>
+    <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted);">업데이트: <span id="last-time">--:--:--</span></span>
+  </div>
+</header>
+
+<!-- 모바일 탭 네비게이션 -->
+<div class="mobile-tabs" id="mobile-tabs">
+  <div class="mobile-tab active" onclick="switchTab('portfolio')">📊 포트폴리오</div>
+  <div class="mobile-tab" onclick="switchTab('chart')">📈 차트</div>
+  <div class="mobile-tab" onclick="switchTab('trade')">💰 매매</div>
+  <div class="mobile-tab" onclick="switchTab('ai')">🤖 AI분석</div>
+</div>
+
+<div class="main">
+
+  <!-- ── 왼쪽 ── -->
+  <div class="left mobile-panel active" id="panel-portfolio">
+    <div class="panel-title">모의 포트폴리오</div>
+    <div class="pf-wrap">
+      <div class="pf-grid">
+        <div class="pf-item"><div class="pf-label">시작 원금</div><div class="pf-value" style="font-size:12px;">₩10,000,000</div></div>
+        <div class="pf-item"><div class="pf-label">모의 수익</div><div class="pf-value pos" id="total-pnl">계산중...</div></div>
+        <div class="pf-item"><div class="pf-label">승률</div><div class="pf-value" id="win-rate">--%</div></div>
+        <div class="pf-item"><div class="pf-label">총 거래</div><div class="pf-value" id="trade-count">0건</div></div>
+      </div>
+    </div>
+
+    <div class="panel-title">분산투자 현황</div>
+    <div id="portfolio-overview" style="padding:10px 14px;border-bottom:1px solid var(--border);">
+      <div style="font-size:11px;color:var(--muted);font-family:var(--font-mono);">자동매매를 켜면 여기서 전 종목 현황을 볼 수 있어요</div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px;border-bottom:1px solid var(--border);">
+      <div class="panel-title" style="border:none;padding:0;margin:0;">실시간 코인 · AI 신호</div>
+      <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);">
+        <span id="coin-count">로딩중...</span>
+      </div>
+    </div>
+    <!-- 검색창 -->
+    <div style="padding:8px 12px;border-bottom:1px solid var(--border);">
+      <input type="text" id="coin-search" placeholder="코인 검색..." oninput="filterCoins(this.value)"
+        style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:6px;
+        padding:7px 10px;color:var(--text);font-family:var(--font-mono);font-size:12px;">
+    </div>
+    <!-- 동적 코인 목록 -->
+    <div id="coin-list-container" style="overflow-y:auto;">
+      <div style="padding:20px;text-align:center;color:var(--muted);font-size:12px;font-family:var(--font-mono);">
+        업비트 전체 코인 로딩중...
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 중앙 ── -->
+  <div class="center mobile-panel active" id="panel-chart">
+    <div class="coin-hdr">
+      <div>
+        <div class="hdr-name" id="detail-name">비트코인 (BTC)</div>
+        <div class="hdr-price" id="detail-price">--</div>
+        <div class="hdr-change" id="detail-change">--</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:10px;color:var(--muted);font-family:var(--font-mono);">데이터 포인트</div>
+        <div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:var(--accent)" id="data-points">0</div>
+        <div style="font-size:10px;color:var(--muted);font-family:var(--font-mono);">수집됨</div>
+      </div>
+    </div>
+
+    <!-- 차트 -->
+    <div class="chart-wrap">
+      <div class="chart-top">
+        <div class="chart-legend">
+          <div class="leg-item"><div class="leg-dot" style="background:var(--accent)"></div><span style="color:var(--muted)">가격</span></div>
+          <div class="leg-item"><div class="leg-dot" style="background:var(--orange)"></div><span style="color:var(--muted)">MA5</span></div>
+          <div class="leg-item"><div class="leg-dot" style="background:var(--accent2)"></div><span style="color:var(--muted)">MA20</span></div>
+        </div>
+        <span style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">MA 데이터 20개 이상 수집 후 표시</span>
+      </div>
+      <canvas id="mainChart"></canvas>
+    </div>
+
+    <!-- 지표 -->
+    <div class="ind-grid">
+      <div class="ind-box">
+        <div class="ind-lbl">RSI (14)</div>
+        <div class="ind-val" id="ind-rsi">--</div>
+        <div class="ind-sub" id="ind-rsi-state">수집중...</div>
+      </div>
+      <div class="ind-box">
+        <div class="ind-lbl">MA5</div>
+        <div class="ind-val" id="ind-ma5">--</div>
+        <div class="ind-sub" id="ind-ma5-sub">단기 평균</div>
+      </div>
+      <div class="ind-box">
+        <div class="ind-lbl">MA20</div>
+        <div class="ind-val" id="ind-ma20">--</div>
+        <div class="ind-sub" id="ind-ma20-sub">장기 평균</div>
+      </div>
+      <div class="ind-box">
+        <div class="ind-lbl">24H 변동</div>
+        <div class="ind-val" id="ind-chg24">--</div>
+        <div class="ind-sub" id="ind-vol">거래량 로딩중</div>
+      </div>
+    </div>
+
+    <!-- 물량 설정 -->
+    <div style="padding:12px 24px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:160px;">
+        <label style="font-family:var(--font-mono);font-size:10px;letter-spacing:2px;color:var(--muted);">투자 금액 설정</label>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input type="number" id="invest-amount" value="100000" min="10000" step="10000"
+            style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:var(--font-mono);font-size:13px;"
+            oninput="updateEstQty()">
+          <span style="font-family:var(--font-mono);font-size:12px;color:var(--muted);">원</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <span style="font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:1px;">금액 버튼</span>
+        <div style="display:flex;gap:5px;">
+          <button onclick="setAmount(100000)"    class="amt-btn">10만</button>
+          <button onclick="setAmount(500000)"    class="amt-btn">50만</button>
+          <button onclick="setAmount(1000000)"   class="amt-btn">100만</button>
+          <button onclick="setAmount(0)"         class="amt-btn" style="color:var(--yellow);">전액</button>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <span style="font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:1px;">잔고 비율</span>
+        <div style="display:flex;gap:5px;">
+          <button onclick="setPercent(10)"  class="amt-btn" style="color:var(--accent);">10%</button>
+          <button onclick="setPercent(25)"  class="amt-btn" style="color:var(--accent);">25%</button>
+          <button onclick="setPercent(50)"  class="amt-btn" style="color:var(--accent);">50%</button>
+          <button onclick="setPercent(100)" class="amt-btn" style="color:var(--accent);">100%</button>
+        </div>
+      </div>
+    </div>
+    <div style="padding:6px 24px 8px;font-family:var(--font-mono);font-size:11px;color:var(--muted);">
+      예상 수량: <span id="est-qty" style="color:var(--accent);">--</span> &nbsp;|&nbsp; 모의 잔고: <span id="mock-balance" style="color:var(--green);">₩10,000,000</span>
+    </div>
+
+    <!-- 자동매매 스위치 -->
+    <div id="auto-panel" style="margin:0 24px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div>
+          <div style="font-family:var(--font-mono);font-size:11px;color:var(--accent);letter-spacing:2px;margin-bottom:2px;">🤖 AI 자동매매</div>
+          <div style="font-size:11px;color:var(--muted);">AI가 캔들 패턴·RSI·MA를 분석해서 스스로 매수/매도</div>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted);" id="auto-label">OFF</span>
+          <div id="auto-toggle-track" onclick="toggleAuto()" style="width:44px;height:24px;background:var(--border);border-radius:12px;position:relative;cursor:pointer;transition:background .3s;">
+            <div id="auto-toggle-thumb" style="position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--muted);transition:all .3s;"></div>
+          </div>
+        </label>
+      </div>
+      <div id="auto-status" style="font-size:11px;color:var(--muted);font-family:var(--font-mono);">자동매매를 켜면 AI가 알아서 거래해요!</div>
+      <div id="auto-log" style="margin-top:8px;max-height:60px;overflow-y:auto;font-size:11px;font-family:var(--font-mono);color:var(--muted);"></div>
+    </div>
+
+    <!-- 모의 매매 버튼 -->
+    <div class="trade-wrap">
+      <button class="trade-btn btn-buy" onclick="mockTrade('BUY')">▶ 수동 매수</button>
+      <button class="trade-btn btn-sell" onclick="mockTrade('SELL')">◀ 수동 매도</button>
+      <div class="trade-amount" id="trade-amt">AI 신호 기반 모의 매매</div>
+    </div>
+
+    <!-- 매매 내역 -->
+    <div class="history-wrap">
+      <div class="history-title">■ 모의 매매 내역</div>
+      <div class="history-row" style="font-size:10px;color:var(--muted);font-family:monospace;">
+        <div>시간</div><div>타입</div><div>종목/수량</div><div>가격</div><div>수익</div>
+      </div>
+      <div id="trade-history"><div style="padding:16px 0;color:var(--muted);font-size:12px;">아직 모의 거래가 없어요. 위의 매수/매도 버튼을 눌러보세요!</div></div>
+    </div>
+  </div>
+
+  <!-- ── 오른쪽: AI 분석 ── -->
+  <div class="right mobile-panel active" id="panel-ai">
+    <div class="panel-title">AI 분석 엔진 v2</div>
+
+    <!-- 종합 판단 -->
+    <div class="ai-card">
+      <div class="ai-card-hdr"><span style="font-size:16px;">🤖</span><span class="ai-card-title">종합 AI 판단 — <span id="ai-target">BTC</span></span></div>
+      <div class="ai-card-body">
+        <div class="ai-decision-row">
+          <div>
+            <div style="font-size:11px;color:var(--muted);font-family:var(--font-mono);margin-bottom:4px;">현재 판단</div>
+            <div class="ai-decision" id="ai-decision">분석중...</div>
+          </div>
+          <div class="ai-score-wrap">
+            <div class="ai-score-lbl">종합 점수</div>
+            <div class="ai-score" id="ai-score">--</div>
+            <div class="ai-score-lbl">/ 100</div>
+          </div>
+        </div>
+
+        <!-- 신호별 상세 -->
+        <div class="sig-row">
+          <span class="sig-name">📊 이동평균 (MA)</span>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="sig-val" id="sig-ma-val">--</span>
+            <span class="sig-tag tag-hold" id="sig-ma-tag">대기중</span>
+          </div>
+        </div>
+        <div class="sig-row">
+          <span class="sig-name">⚡ RSI 과열/침체</span>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="sig-val" id="sig-rsi-val">--</span>
+            <span class="sig-tag tag-hold" id="sig-rsi-tag">대기중</span>
+          </div>
+        </div>
+        <div class="sig-row">
+          <span class="sig-name">📈 24H 추세</span>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="sig-val" id="sig-trend-val">--</span>
+            <span class="sig-tag tag-hold" id="sig-trend-tag">대기중</span>
+          </div>
+        </div>
+        <div class="sig-row">
+          <span class="sig-name">🔊 거래량 신호</span>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="sig-val" id="sig-vol-val">--</span>
+            <span class="sig-tag tag-hold" id="sig-vol-tag">대기중</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RSI 게이지 -->
+    <div class="ai-card">
+      <div class="ai-card-hdr"><span style="font-size:16px;">⚡</span><span class="ai-card-title">RSI 게이지</span></div>
+      <div class="ai-card-body">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">RSI = <span id="rsi-num" style="color:var(--accent);font-family:var(--font-mono);font-weight:700;">--</span></div>
+        <div class="rsi-gauge">
+          <div class="rsi-track">
+            <div class="rsi-thumb" id="rsi-thumb" style="left:50%"></div>
+          </div>
+          <div class="rsi-labels">
+            <span>0</span><span style="color:var(--green)">30 과매도</span><span>50</span><span style="color:var(--red)">70 과매수</span><span>100</span>
+          </div>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.6;" id="rsi-explain">
+          데이터 14개 이상 수집 후 RSI가 계산돼요. 잠시만 기다려주세요!
+        </div>
+      </div>
+    </div>
+
+    <!-- 이동평균 크로스 -->
+    <div class="ai-card">
+      <div class="ai-card-hdr"><span style="font-size:16px;">📊</span><span class="ai-card-title">이동평균 크로스</span></div>
+      <div class="ai-card-body">
+        <div class="ma-visual">
+          <div class="ma-item">
+            <div class="ma-lbl">MA5 (단기)</div>
+            <div class="ma-val" id="ma5-display" style="color:var(--orange)">--</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:2px;">5개 평균</div>
+          </div>
+          <div class="ma-item" style="background:var(--bg3);">
+            <div class="ma-lbl">크로스</div>
+            <div class="ma-val" id="cross-display" style="font-size:13px;">대기중</div>
+          </div>
+          <div class="ma-item">
+            <div class="ma-lbl">MA20 (장기)</div>
+            <div class="ma-val" id="ma20-display" style="color:var(--accent2)">--</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:2px;">20개 평균</div>
+          </div>
+        </div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.6;" id="ma-explain">
+          MA5가 MA20을 위로 뚫으면 <span style="color:var(--green)">골든크로스 (매수)</span>,<br>
+          아래로 뚫으면 <span style="color:var(--red)">데드크로스 (매도)</span> 신호예요.
+        </div>
+      </div>
+    </div>
+
+    <div style="height:20px;"></div>
+  </div>
+</div>
+
+<script>
+// ── 상수 & 상태 ──────────────────────────
+// 업비트 전체 KRW 마켓 코인 동적 로딩
+let COINS = [];
+let COINS_LOADED = false;
+
+async function loadAllCoins() {
+  try {
+    const res = await fetch('https://api.upbit.com/v1/market/all?isDetails=false');
+    const data = await res.json();
+    // KRW 마켓만 필터링
+    COINS = data
+      .filter(m => m.market.startsWith('KRW-'))
+      .map(m => m.market);
+    COINS_LOADED = true;
+    console.log('전체 코인 로드:', COINS.length + '개');
+    // priceHistory 초기화
+    COINS.forEach(c => { if (!priceHistory[c]) priceHistory[c] = []; });
+    // 왼쪽 패널 코인 목록 렌더링
+    renderCoinList();
+  } catch(e) {
+    console.error('코인 목록 로드 실패:', e);
+    // 실패 시 기본 6개로 폴백
+    COINS = ['KRW-BTC','KRW-ETH','KRW-XRP','KRW-SOL','KRW-DOGE','KRW-ADA'];
+    COINS.forEach(c => { if (!priceHistory[c]) priceHistory[c] = []; });
+    renderCoinList();
+  }
+}
+let priceData = {};
+let priceHistory = {};   // { 'KRW-BTC': [price, price, ...] }  최대 100개
+let selectedCoin = 'KRW-BTC'; // 첫 선택 종목 (코인 로드 후 자동 설정)
+let tradeHistory = [];
+let mockBuyPrice = {};
+let winCount = 0, totalTrades = 0;
+
+// priceHistory는 loadAllCoins()에서 초기화
+
+// ── 포맷 함수 ────────────────────────────
+const fmtP = n => {
+  if (n >= 1000000) return '₩' + Math.round(n).toLocaleString('ko-KR');
+  if (n >= 1)       return '₩' + n.toFixed(2);
+  return '₩' + n.toFixed(4);
+};
+const fmtShort = n => {
+  if (n >= 1000000) return (n/1000000).toFixed(1) + 'M';
+  if (n >= 1000)    return (n/1000).toFixed(1) + 'K';
+  return n.toFixed(2);
+};
+
+// ── 기술적 지표 계산 ─────────────────────
+
+// 단순 이동평균
+function calcMA(prices, period) {
+  if (prices.length < period) return null;
+  const slice = prices.slice(-period);
+  return slice.reduce((a, b) => a + b, 0) / period;
+}
+
+// RSI 계산 (Wilder 방식)
+function calcRSI(prices, period = 14) {
+  if (prices.length < period + 1) return null;
+  const slice = prices.slice(-period - 1);
+  let gains = 0, losses = 0;
+
+  for (let i = 1; i < slice.length; i++) {
+    const diff = slice[i] - slice[i - 1];
+    if (diff > 0) gains += diff;
+    else losses += Math.abs(diff);
+  }
+
+  const avgGain = gains / period;
+  const avgLoss = losses / period;
+  if (avgLoss === 0) return 100;
+  const rs = avgGain / avgLoss;
+  return Math.round((100 - 100 / (1 + rs)) * 10) / 10;
+}
+
+// ── AI 종합 판단 ─────────────────────────
+function calcAI(market) {
+  const prices = priceHistory[market];
+  const ticker = priceData[market];
+  if (!ticker || prices.length < 5) return null;
+
+  const ma5  = calcMA(prices, 5);
+  const ma20 = calcMA(prices, 20);
+  const rsi  = calcRSI(prices, 14);
+  const rate = ticker.signed_change_rate * 100;
+  const currentPrice = ticker.trade_price;
+
+  let score = 50; // 기본 점수 (중립)
+  let signals = {};
+
+  // 1. 이동평균 신호 (±20점)
+  if (ma5 && ma20) {
+    const maDiff = ((ma5 - ma20) / ma20) * 100;
+    if (maDiff > 0.3) {
+      score += 20;
+      signals.ma = { val: `MA5 > MA20 (+${maDiff.toFixed(2)}%)`, tag: '매수', cls: 'tag-buy' };
+    } else if (maDiff < -0.3) {
+      score -= 20;
+      signals.ma = { val: `MA5 < MA20 (${maDiff.toFixed(2)}%)`, tag: '매도', cls: 'tag-sell' };
+    } else {
+      signals.ma = { val: `MA 수렴중 (${maDiff.toFixed(2)}%)`, tag: '중립', cls: 'tag-hold' };
+    }
+  } else {
+    signals.ma = { val: `데이터 수집중 (${prices.length}/20)`, tag: '대기', cls: 'tag-hold' };
+  }
+
+  // 2. RSI 신호 (±20점)
+  if (rsi !== null) {
+    if (rsi < 30) {
+      score += 20;
+      signals.rsi = { val: `RSI ${rsi} — 과매도`, tag: '매수', cls: 'tag-buy' };
+    } else if (rsi > 70) {
+      score -= 20;
+      signals.rsi = { val: `RSI ${rsi} — 과매수`, tag: '매도', cls: 'tag-sell' };
+    } else if (rsi > 50) {
+      score += 8;
+      signals.rsi = { val: `RSI ${rsi} — 강세권`, tag: '긍정', cls: 'tag-buy' };
+    } else {
+      score -= 5;
+      signals.rsi = { val: `RSI ${rsi} — 약세권`, tag: '주의', cls: 'tag-hold' };
+    }
+  } else {
+    signals.rsi = { val: `RSI 계산중 (${prices.length}/14)`, tag: '대기', cls: 'tag-hold' };
+  }
+
+  // 3. 24H 추세 (±15점)
+  if (rate > 3) {
+    score += 15;
+    signals.trend = { val: `+${rate.toFixed(2)}% 강세`, tag: '매수', cls: 'tag-buy' };
+  } else if (rate > 0) {
+    score += 5;
+    signals.trend = { val: `+${rate.toFixed(2)}% 약한 상승`, tag: '긍정', cls: 'tag-buy' };
+  } else if (rate < -3) {
+    score -= 15;
+    signals.trend = { val: `${rate.toFixed(2)}% 약세`, tag: '매도', cls: 'tag-sell' };
+  } else {
+    score -= 5;
+    signals.trend = { val: `${rate.toFixed(2)}% 약한 하락`, tag: '주의', cls: 'tag-hold' };
+  }
+
+  // 4. 거래량 신호 (±10점)
+  const volRatio = ticker.acc_trade_volume_24h / (ticker.acc_trade_price_24h / ticker.trade_price || 1);
+  if (ticker.acc_trade_volume_24h > 1000) {
+    score += 10;
+    signals.vol = { val: `거래량 ${fmtShort(ticker.acc_trade_volume_24h)} — 활발`, tag: '긍정', cls: 'tag-buy' };
+  } else {
+    signals.vol = { val: `거래량 ${fmtShort(ticker.acc_trade_volume_24h)} — 보통`, tag: '중립', cls: 'tag-hold' };
+  }
+
+  score = Math.max(0, Math.min(100, Math.round(score)));
+
+  let decision, decisionColor, signalCls, fillCls, fillPct;
+  if (score >= 65) {
+    decision = '▶ 매수'; decisionColor = 'var(--green)'; signalCls = 'sig-buy'; fillCls = 'fill-buy'; fillPct = score;
+  } else if (score <= 40) {
+    decision = '◀ 매도'; decisionColor = 'var(--red)'; signalCls = 'sig-sell'; fillCls = 'fill-sell'; fillPct = 100 - score;
+  } else {
+    decision = '■ 관망'; decisionColor = 'var(--yellow)'; signalCls = 'sig-hold'; fillCls = 'fill-hold'; fillPct = 50;
+  }
+
+  return { score, decision, decisionColor, signals, ma5, ma20, rsi, fillCls, fillPct };
+}
+
+// ── UI 업데이트 ──────────────────────────
+function updateCoinCard(ticker, prev) {
+  const m = ticker.market;
+  const priceEl = document.getElementById('price-'+m);
+  const changeEl = document.getElementById('change-'+m);
+  const card = document.getElementById('card-'+m);
+  if (!priceEl) return;
+
+  const price = ticker.trade_price;
+  const rate = ticker.signed_change_rate * 100;
+  const isUp = rate >= 0;
+
+  if (prev && prev.trade_price !== price) {
+    card.classList.remove('flash-up','flash-down');
+    void card.offsetWidth;
+    card.classList.add(price > prev.trade_price ? 'flash-up' : 'flash-down');
+  }
+
+  priceEl.textContent = fmtP(price);
+  priceEl.className = 'coin-price ' + (isUp ? 'pos' : 'neg');
+  changeEl.textContent = (isUp ? '▲ +' : '▼ ') + rate.toFixed(2) + '%';
+  changeEl.className = 'coin-change ' + (isUp ? 'pos' : 'neg');
+
+  // AI 신호 바 업데이트
+  const ai = calcAI(m);
+  if (ai) {
+    const lblEl = document.getElementById('siglbl-'+m);
+    const barEl = document.getElementById('sigbar-'+m);
+    const pctEl = document.getElementById('sigpct-'+m);
+    const lblMap = { '▶ 매수': ['매수', 'fill-buy', 'var(--green)'], '◀ 매도': ['매도', 'fill-sell', 'var(--red)'], '■ 관망': ['관망', 'fill-hold', 'var(--yellow)'] };
+    const [lbl, cls, col] = lblMap[ai.decision] || ['--', 'fill-hold', 'var(--muted)'];
+    lblEl.textContent = lbl;
+    lblEl.style.color = col;
+    barEl.className = 'signal-fill ' + cls;
+    barEl.style.width = ai.fillPct + '%';
+    pctEl.textContent = ai.score;
+  }
+}
+
+function updateDetail(ticker) {
+  const price = ticker.trade_price;
+  const rate = ticker.signed_change_rate * 100;
+  const isUp = rate >= 0;
+  document.getElementById('detail-price').textContent = fmtP(price);
+  const chgEl = document.getElementById('detail-change');
+  chgEl.textContent = (isUp ? '▲ +' : '▼ ') + rate.toFixed(2) + '% 오늘';
+  chgEl.style.color = isUp ? 'var(--green)' : 'var(--red)';
+
+  const prices = priceHistory[ticker.market];
+  document.getElementById('data-points').textContent = prices.length;
+
+  const ai = calcAI(ticker.market);
+  const ma5 = calcMA(prices, 5);
+  const ma20 = calcMA(prices, 20);
+  const rsi = calcRSI(prices, 14);
+
+  // 지표 박스
+  if (rsi !== null) {
+    const rsiEl = document.getElementById('ind-rsi');
+    rsiEl.textContent = rsi.toFixed(1);
+    rsiEl.className = 'ind-val ' + (rsi > 70 ? 'neg' : rsi < 30 ? 'pos' : 'neu');
+    document.getElementById('ind-rsi-state').textContent = rsi > 70 ? '과매수' : rsi < 30 ? '과매도' : '중립';
+  }
+  if (ma5)  { document.getElementById('ind-ma5').textContent = fmtP(ma5); }
+  if (ma20) { document.getElementById('ind-ma20').textContent = fmtP(ma20); }
+
+  const chg24 = document.getElementById('ind-chg24');
+  chg24.textContent = (rate >= 0 ? '+' : '') + rate.toFixed(2) + '%';
+  chg24.className = 'ind-val ' + (rate >= 0 ? 'pos' : 'neg');
+  document.getElementById('ind-vol').textContent = fmtShort(ticker.acc_trade_volume_24h) + ' ' + ticker.market.split('-')[0];
+
+  if (ai) updateAIPanel(ai, ma5, ma20, rsi, ticker);
+}
+
+function updateAIPanel(ai, ma5, ma20, rsi, ticker) {
+  // 종합 판단
+  const decEl = document.getElementById('ai-decision');
+  decEl.textContent = ai.decision;
+  decEl.style.color = ai.decisionColor;
+  document.getElementById('ai-score').textContent = ai.score;
+  document.getElementById('ai-score').style.color = ai.decisionColor;
+
+  // 신호별
+  const sigs = ai.signals;
+  if (sigs.ma) {
+    document.getElementById('sig-ma-val').textContent = sigs.ma.val;
+    const t = document.getElementById('sig-ma-tag');
+    t.textContent = sigs.ma.tag; t.className = 'sig-tag ' + sigs.ma.cls;
+  }
+  if (sigs.rsi) {
+    document.getElementById('sig-rsi-val').textContent = sigs.rsi.val;
+    const t = document.getElementById('sig-rsi-tag');
+    t.textContent = sigs.rsi.tag; t.className = 'sig-tag ' + sigs.rsi.cls;
+  }
+  if (sigs.trend) {
+    document.getElementById('sig-trend-val').textContent = sigs.trend.val;
+    const t = document.getElementById('sig-trend-tag');
+    t.textContent = sigs.trend.tag; t.className = 'sig-tag ' + sigs.trend.cls;
+  }
+  if (sigs.vol) {
+    document.getElementById('sig-vol-val').textContent = sigs.vol.val;
+    const t = document.getElementById('sig-vol-tag');
+    t.textContent = sigs.vol.tag; t.className = 'sig-tag ' + sigs.vol.cls;
+  }
+
+  // RSI 게이지
+  if (rsi !== null) {
+    document.getElementById('rsi-num').textContent = rsi.toFixed(1);
+    document.getElementById('rsi-thumb').style.left = rsi + '%';
+    let rsiMsg = '';
+    if (rsi < 30) rsiMsg = '🟢 RSI 30 이하 — 과매도 구간이에요. 반등 가능성이 높아요!';
+    else if (rsi > 70) rsiMsg = '🔴 RSI 70 이상 — 과매수 구간이에요. 조정이 올 수 있어요!';
+    else if (rsi > 50) rsiMsg = '🟡 RSI 50~70 — 강세 구간이에요. 추세가 살아있어요.';
+    else rsiMsg = '🟡 RSI 30~50 — 약세 구간이에요. 방향성을 지켜봐야 해요.';
+    document.getElementById('rsi-explain').textContent = rsiMsg;
+    document.getElementById('ind-rsi').textContent = rsi.toFixed(1);
+  }
+
+  // MA 크로스
+  if (ma5 && ma20) {
+    document.getElementById('ma5-display').textContent = fmtP(ma5);
+    document.getElementById('ma20-display').textContent = fmtP(ma20);
+    const crossEl = document.getElementById('cross-display');
+    if (ma5 > ma20) {
+      crossEl.textContent = '골든크로스 ▲';
+      crossEl.style.color = 'var(--green)';
+      document.getElementById('ma-explain').innerHTML =
+        '<span style="color:var(--green)">▲ 골든크로스!</span> MA5가 MA20 위에 있어요.<br>단기 상승 모멘텀이 살아있는 신호예요.';
+    } else {
+      crossEl.textContent = '데드크로스 ▼';
+      crossEl.style.color = 'var(--red)';
+      document.getElementById('ma-explain').innerHTML =
+        '<span style="color:var(--red)">▼ 데드크로스!</span> MA5가 MA20 아래에 있어요.<br>단기 하락 압력이 있는 신호예요.';
+    }
+  } else {
+    const prices = priceHistory[selectedCoin];
+    document.getElementById('cross-display').textContent = `${prices.length}/20`;
+    document.getElementById('cross-display').style.color = 'var(--muted)';
+  }
+
+  // 매매 버튼 안내
+  document.getElementById('trade-amt').textContent =
+    `AI 추천: ${ai.decision} (점수: ${ai.score}/100)`;
+}
+
+// ── 차트 그리기 ─────────────────────────
+function drawChart() {
+  const canvas = document.getElementById('mainChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const prices = priceHistory[selectedCoin];
+  if (prices.length < 2) return;
+
+  canvas.width = canvas.offsetWidth * window.devicePixelRatio;
+  canvas.height = 200 * window.devicePixelRatio;
+  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+  const W = canvas.offsetWidth, H = 200;
+
+  const ma5arr  = prices.map((_, i) => i >= 4  ? calcMA(prices.slice(0, i+1), 5)  : null);
+  const ma20arr = prices.map((_, i) => i >= 19 ? calcMA(prices.slice(0, i+1), 20) : null);
+
+  const allVals = [...prices, ...ma5arr.filter(Boolean), ...ma20arr.filter(Boolean)];
+  const minP = Math.min(...allVals) * 0.9998;
+  const maxP = Math.max(...allVals) * 1.0002;
+  const range = maxP - minP || 1;
+
+  const toX = i => (i / (prices.length - 1)) * (W - 30) + 15;
+  const toY = p => H - 25 - ((p - minP) / range) * (H - 40);
+
+  ctx.clearRect(0, 0, W, H);
+
+  // 그리드
+  ctx.strokeStyle = '#1e2d45'; ctx.lineWidth = 0.5;
+  [0.25, 0.5, 0.75].forEach(r => {
+    const y = 15 + r * (H - 40);
+    ctx.beginPath(); ctx.moveTo(15, y); ctx.lineTo(W-15, y); ctx.stroke();
+  });
+
+  // 가격 영역 채우기
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, 'rgba(0,212,255,0.2)');
+  grad.addColorStop(1, 'rgba(0,212,255,0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(toX(0), toY(prices[0]));
+  prices.forEach((p, i) => { if (i > 0) ctx.lineTo(toX(i), toY(p)); });
+  ctx.lineTo(toX(prices.length-1), H);
+  ctx.lineTo(toX(0), H);
+  ctx.closePath(); ctx.fill();
+
+  // 가격 라인
+  ctx.strokeStyle = '#00d4ff'; ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  prices.forEach((p, i) => i === 0 ? ctx.moveTo(toX(0), toY(p)) : ctx.lineTo(toX(i), toY(p)));
+  ctx.stroke();
+
+  // MA5 라인
+  ctx.strokeStyle = '#f97316'; ctx.lineWidth = 1.2; ctx.setLineDash([4, 3]);
+  let started = false;
+  ctx.beginPath();
+  ma5arr.forEach((v, i) => {
+    if (v === null) return;
+    if (!started) { ctx.moveTo(toX(i), toY(v)); started = true; }
+    else ctx.lineTo(toX(i), toY(v));
+  });
+  ctx.stroke();
+
+  // MA20 라인
+  ctx.strokeStyle = '#7c3aed'; ctx.lineWidth = 1.2;
+  started = false;
+  ctx.beginPath();
+  ma20arr.forEach((v, i) => {
+    if (v === null) return;
+    if (!started) { ctx.moveTo(toX(i), toY(v)); started = true; }
+    else ctx.lineTo(toX(i), toY(v));
+  });
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 현재가 점
+  const lastY = toY(prices[prices.length-1]);
+  ctx.fillStyle = '#00d4ff';
+  ctx.beginPath(); ctx.arc(toX(prices.length-1), lastY, 4, 0, Math.PI*2); ctx.fill();
+}
+
+// ── 모의 매매 ───────────────────────────
+// ── 모의 잔고 & 보유 ──────────────────────
+let mockBalance = 10000000;
+let holdings = {};
+
+function setAmount(val) {
+  const input = document.getElementById('invest-amount');
+  if (val === 0) {
+    input.value = Math.floor(mockBalance / 10000) * 10000;
+  } else {
+    input.value = val;
+  }
+  updateEstQty();
+}
+
+function setPercent(pct) {
+  const amount = Math.floor((mockBalance * pct / 100) / 10000) * 10000;
+  document.getElementById('invest-amount').value = Math.max(amount, 10000);
+  updateEstQty();
+}
+
+// ── 자동매매 엔진 ─────────────────────────
+let autoMode = false;
+let autoInterval = null;
+let autoLog = [];
+
+function toggleAuto() {
+  autoMode = !autoMode;
+  const track = document.getElementById('auto-toggle-track');
+  const thumb = document.getElementById('auto-toggle-thumb');
+  const label = document.getElementById('auto-label');
+  const status = document.getElementById('auto-status');
+
+  if (autoMode) {
+    track.style.background = 'var(--green)';
+    thumb.style.left = '23px';
+    thumb.style.background = '#fff';
+    label.textContent = 'ON';
+    label.style.color = 'var(--green)';
+    status.style.color = 'var(--green)';
+    status.textContent = '🤖 AI 자동매매 가동 중... 3초마다 시장을 분석해요!';
+    // 자동매매 루프 시작 (가격 업데이트 주기에 맞춤)
+    autoInterval = setInterval(runAutoTrade, 3000);
+  } else {
+    track.style.background = 'var(--border)';
+    thumb.style.left = '3px';
+    thumb.style.background = 'var(--muted)';
+    label.textContent = 'OFF';
+    label.style.color = 'var(--muted)';
+    status.style.color = 'var(--muted)';
+    status.textContent = '자동매매가 중지됐어요.';
+    if (autoInterval) { clearInterval(autoInterval); autoInterval = null; }
+  }
+}
+
+function addAutoLog(msg) {
+  const now = new Date().toTimeString().slice(0,8);
+  autoLog.unshift('[' + now + '] ' + msg);
+  if (autoLog.length > 5) autoLog.pop();
+  const el = document.getElementById('auto-log');
+  if (el) el.innerHTML = autoLog.map(l => '<div>' + l + '</div>').join('');
+}
+
+// ── 분산투자 설정 ────────────────────────
+// 종목당 최대 투자 비율 (잔고 대비)
+const MAX_PER_COIN = 0.25;   // 종목당 최대 25%
+const BUY_THRESHOLD = 65;    // 매수 AI 점수
+const SELL_THRESHOLD = 38;   // 매도 AI 점수
+const STOP_LOSS = -5.0;        // 손절 -5% (고정)
+const TRAIL_TRIGGER = 1.0;    // 트레일링 스탑 발동 최소 수익 +1%
+const TRAIL_DROP = 2.0;       // 고점 대비 -2% 하락 시 매도
+// 종목별 고점 추적
+let trailingHigh = {};        // { 'KRW-BTC': 최고가 }
+
+function runAutoTrade() {
+  if (!autoMode) return;
+
+  let actions = [];
+
+  // 전체 코인 순회하며 독립 판단
+  COINS.forEach(market => {
+    const ticker = priceData[market];
+    if (!ticker) return;
+    const prices = priceHistory[market];
+    if (prices.length < 14) return;
+
+    const price = ticker.trade_price;
+    const rsi = calcRSI(prices, 14);
+    const ai = calcAI(market);
+    const name = market.split('-')[1];
+    const hasHolding = holdings[market] && holdings[market].qty > 0;
+
+    if (hasHolding) {
+      // ── 매도 판단 ──
+      const h = holdings[market];
+      const profitRate = (price - h.avgPrice) / h.avgPrice * 100;
+      let sellReason = '';
+      // 고점 갱신
+      if (!trailingHigh[market] || price > trailingHigh[market]) {
+        trailingHigh[market] = price;
+      }
+      const highPrice = trailingHigh[market];
+      const dropFromHigh = ((price - highPrice) / highPrice) * 100;
+      const profitFromHigh = ((highPrice - h.avgPrice) / h.avgPrice) * 100;
+
+      // 손절: 매수가 대비 -5%
+      if (profitRate <= STOP_LOSS) {
+        sellReason = '🛡손절 ' + profitRate.toFixed(2) + '%';
+      }
+      // 트레일링 스탑: 고점 +1% 이상 찍은 후 고점 대비 -2% 하락
+      else if (profitFromHigh >= TRAIL_TRIGGER && dropFromHigh <= -TRAIL_DROP) {
+        sellReason = '🎯트레일링 고점+' + profitFromHigh.toFixed(2) + '% → -' + Math.abs(dropFromHigh).toFixed(2) + '%';
+      }
+      // RSI 과매수
+      else if (rsi !== null && rsi > 72) {
+        sellReason = '⚡RSI ' + rsi.toFixed(1);
+      }
+      // AI 매도 신호
+      else if (ai && ai.score <= SELL_THRESHOLD) {
+        sellReason = '📉AI:' + ai.score;
+      }
+
+      if (sellReason) {
+        actions.push({ market, type: 'SELL', name, reason: sellReason, price, profitRate });
+      }
+    } else {
+      // ── 매수 판단 ──
+      if (ai && ai.score >= BUY_THRESHOLD && rsi !== null && rsi < 65 && mockBalance >= 100000) {
+        actions.push({ market, type: 'BUY', name, score: ai.score, rsi, price });
+      }
+    }
+  });
+
+  // 매도 먼저 실행 (잔고 확보)
+  actions.filter(a => a.type === 'SELL').forEach(a => {
+    autoTradeMarket(a.market, 'SELL', a.name, a.reason);
+  });
+
+  // 매수는 점수 높은 순서로 (잔고 분산)
+  actions.filter(a => a.type === 'BUY')
+    .sort((x, y) => y.score - x.score)
+    .forEach(a => {
+      if (mockBalance < 100000) return;
+      autoTradeMarket(a.market, 'BUY', a.name, 'AI:' + a.score + ' RSI:' + a.rsi.toFixed(1));
+    });
+
+  // 보유 현황 로그
+  const heldCoins = COINS.filter(m => holdings[m] && holdings[m].qty > 0).map(m => {
+    const t = priceData[m];
+    const h = holdings[m];
+    const rate = t ? ((t.trade_price - h.avgPrice) / h.avgPrice * 100).toFixed(2) : '--';
+    return m.split('-')[1] + '(' + (rate >= 0 ? '+' : '') + rate + '%)';
+  });
+
+  if (heldCoins.length > 0) {
+    document.getElementById('auto-status').textContent =
+      '📊 보유: ' + heldCoins.join(' | ') + ' | 잔고: ₩' + Math.round(mockBalance).toLocaleString('ko-KR');
+  } else if (actions.length === 0) {
+    document.getElementById('auto-status').textContent =
+      '⏳ 전 종목 매수 신호 대기중... 잔고: ₩' + Math.round(mockBalance).toLocaleString('ko-KR');
+  }
+}
+
+function autoTradeMarket(market, type, name, reason) {
+  const ticker = priceData[market];
+  if (!ticker) return;
+  const price = ticker.trade_price;
+  const now = new Date().toTimeString().slice(0,8);
+  let pnl = 0, qty = 0;
+
+  if (type === 'BUY') {
+    // 종목당 최대 25%, 단 잔고 초과 불가
+    const autoAmount = Math.min(
+      Math.floor((mockBalance * MAX_PER_COIN) / 10000) * 10000,
+      Math.floor(mockBalance / 10000) * 10000
+    );
+    if (autoAmount < 10000) return;
+    qty = autoAmount / price;
+    mockBalance -= autoAmount;
+    if (!holdings[market]) holdings[market] = { qty: 0, avgPrice: 0, invested: 0 };
+    const h = holdings[market];
+    h.invested += autoAmount;
+    h.qty += qty;
+    h.avgPrice = h.invested / h.qty;
+    mockBuyPrice[market] = h.avgPrice;
+    trailingHigh[market] = price;  // 고점 추적 초기화
+    totalTrades++;
+    tradeHistory.unshift({ time: now, name, price: fmtP(price), qty: qty.toFixed(6), pnl: 0, type: 'BUY', amount: autoAmount });
+    addAutoLog('🟢 매수 ' + name + ' ₩' + Math.round(autoAmount).toLocaleString('ko-KR') + ' [' + reason + ']');
+
+  } else if (type === 'SELL') {
+    const h = holdings[market];
+    if (!h || h.qty <= 0) return;
+    qty = h.qty;
+    const sellAmount = qty * price;
+    pnl = Math.round(sellAmount - h.invested);
+    mockBalance += sellAmount;
+    if (pnl > 0) winCount++;
+    totalTrades++;
+    holdings[market] = null;
+    mockBuyPrice[market] = null;
+    trailingHigh[market] = null;  // 고점 추적 초기화
+    tradeHistory.unshift({ time: now, name, price: fmtP(price), qty: qty.toFixed(6), pnl, type: 'SELL', amount: sellAmount });
+    addAutoLog('🔴 매도 ' + name + ' ' + reason + ' ' + (pnl >= 0 ? '+' : '') + pnl.toLocaleString('ko-KR') + '원');
+  }
+
+  if (tradeHistory.length > 15) tradeHistory.pop();
+  document.getElementById('trade-count').textContent = totalTrades + '건';
+  if (totalTrades > 0) document.getElementById('win-rate').textContent = Math.round(winCount/totalTrades*100) + '%';
+  updateEstQty();
+  renderHistory();
+  updatePortfolio();
+}
+
+function updateEstQty() {
+  const ticker = priceData[selectedCoin];
+  if (!ticker) return;
+  const amount = parseInt(document.getElementById('invest-amount').value) || 0;
+  const qty = amount / ticker.trade_price;
+  const sym = selectedCoin.split('-')[1];
+  document.getElementById('est-qty').textContent = qty.toFixed(6) + ' ' + sym;
+  document.getElementById('mock-balance').textContent = '₩' + Math.round(mockBalance).toLocaleString('ko-KR');
+}
+
+function mockTrade(type) {
+  const ticker = priceData[selectedCoin];
+  if (!ticker) { alert('가격 데이터를 불러오는 중이에요! 잠시 후 다시 눌러주세요.'); return; }
+  const price = ticker.trade_price;
+  const name = selectedCoin.split('-')[1] || selectedCoin;
+  const now = new Date().toTimeString().slice(0,8);
+  const amount = parseInt(document.getElementById('invest-amount').value) || 100000;
+  let pnl = 0, qty = 0;
+
+  if (type === 'BUY') {
+    if (amount > mockBalance) {
+      alert('모의 잔고가 부족해요!\n현재 잔고: ₩' + Math.round(mockBalance).toLocaleString('ko-KR'));
+      return;
+    }
+    qty = amount / price;
+    mockBalance -= amount;
+    if (!holdings[selectedCoin]) holdings[selectedCoin] = { qty: 0, avgPrice: 0, invested: 0 };
+    const h = holdings[selectedCoin];
+    h.invested += amount;
+    h.qty += qty;
+    h.avgPrice = h.invested / h.qty;
+    mockBuyPrice[selectedCoin] = h.avgPrice;
+    totalTrades++;
+    const btn = document.querySelector('.btn-buy');
+    btn.textContent = '✅ 매수 완료!';
+    setTimeout(() => btn.textContent = '▶ 모의 매수', 1500);
+
+  } else if (type === 'SELL') {
+    if (!holdings[selectedCoin] || holdings[selectedCoin].qty <= 0) {
+      alert('보유 수량이 없어요! 먼저 모의 매수를 해주세요.');
+      return;
+    }
+    const h = holdings[selectedCoin];
+    qty = Math.min(amount / price, h.qty);
+    const sellAmount = qty * price;
+    const costAmount = qty * h.avgPrice;
+    pnl = Math.round(sellAmount - costAmount);
+    mockBalance += sellAmount;
+    h.qty -= qty;
+    h.invested -= costAmount;
+    if (h.qty <= 0) { holdings[selectedCoin] = null; mockBuyPrice[selectedCoin] = null; }
+    if (pnl > 0) winCount++;
+    totalTrades++;
+    const btn = document.querySelector('.btn-sell');
+    btn.textContent = pnl >= 0 ? '✅ 수익 실현!' : '❌ 손절 완료';
+    setTimeout(() => btn.textContent = '◀ 모의 매도', 1500);
+  }
+
+  tradeHistory.unshift({ time: now, name, price: fmtP(price), qty: qty.toFixed(6), pnl, type, amount });
+  if (tradeHistory.length > 15) tradeHistory.pop();
+  document.getElementById('trade-count').textContent = totalTrades + '건';
+  if (totalTrades > 0) {
+    document.getElementById('win-rate').textContent = Math.round(winCount/totalTrades*100) + '%';
+  }
+  updateEstQty();
+  renderHistory();
+  updatePortfolio();
+  document.getElementById('trade-history').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function renderHistory() {
+  const el = document.getElementById('trade-history');
+  if (tradeHistory.length === 0) return;
+  el.innerHTML = tradeHistory.map(t => `
+    <div class="history-row">
+      <div class="h-time">${t.time}</div>
+      <div><span class="badge ${t.type === 'BUY' ? 'badge-buy' : 'badge-sell'}">${t.type === 'BUY' ? '매수' : '매도'}</span></div>
+      <div style="overflow:hidden;">
+        <span style="font-weight:500;">${t.name}</span>
+        <span style="font-size:10px;color:var(--muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${parseFloat(t.qty).toFixed(4)}</span>
+      </div>
+      <div class="h-price">${t.price}</div>
+      <div class="h-pnl ${t.pnl > 0 ? 'pos' : t.pnl < 0 ? 'neg' : 'neu'}" style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${t.pnl !== 0 ? (t.pnl > 0 ? '+' : '') + t.pnl.toLocaleString('ko-KR') + '원' : '--'}</div>
+    </div>
+  `).join('');
+}
+
+function updatePortfolio() {
+  const el = document.getElementById('total-pnl');
+
+  // 보유 코인 현재 평가금액 합산
+  let holdingValue = 0;
+  COINS.forEach(m => {
+    const h = holdings[m];
+    const t = priceData[m];
+    if (h && h.qty > 0 && t) {
+      holdingValue += h.qty * t.trade_price;
+    }
+  });
+
+  // 진짜 수익 = 현재 잔고 + 보유 평가금액 - 시작 원금
+  const totalAsset = mockBalance + holdingValue;
+  const profit = Math.round(totalAsset - 10000000);
+  const profitRate = (profit / 10000000 * 100).toFixed(2);
+
+  el.textContent = (profit >= 0 ? '+' : '') + profit.toLocaleString('ko-KR') + '원 (' + (profit >= 0 ? '+' : '') + profitRate + '%)';
+  el.className = 'pf-value ' + (profit >= 0 ? 'pos' : 'neg');
+  renderPortfolioOverview();
+}
+
+function renderPortfolioOverview() {
+  const el = document.getElementById('portfolio-overview');
+  if (!el) return;
+  const held = COINS.filter(m => holdings[m] && holdings[m].qty > 0);
+  if (held.length === 0) {
+    el.innerHTML = '<div style="font-size:11px;color:var(--muted);font-family:var(--font-mono);">현재 보유 종목 없음 — 자동매매 대기중</div>';
+    return;
+  }
+  el.innerHTML = held.map(m => {
+    const t = priceData[m];
+    const h = holdings[m];
+    if (!t || !h) return '';
+    const rate = ((t.trade_price - h.avgPrice) / h.avgPrice * 100);
+    const pnl = Math.round(h.qty * t.trade_price - h.invested);
+    const name = m.split('-')[1];
+    const high = trailingHigh[m];
+    const dropFromHigh = high ? ((t.trade_price - high) / high * 100) : 0;
+    const triggerReady = high ? ((high - h.avgPrice) / h.avgPrice * 100) >= TRAIL_TRIGGER : false;
+    return `<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <span style="font-weight:700;">${name}</span>
+          <span style="font-size:10px;color:var(--muted);margin-left:5px;font-family:var(--font-mono);">${h.qty.toFixed(5)}</span>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-family:var(--font-mono);font-size:11px;color:${pnl >= 0 ? 'var(--green)' : 'var(--red)'};">${pnl >= 0 ? '+' : ''}${pnl.toLocaleString('ko-KR')}원</div>
+          <div style="font-family:var(--font-mono);font-size:10px;color:${rate >= 0 ? 'var(--green)' : 'var(--red)'};">${rate >= 0 ? '+' : ''}${rate.toFixed(2)}%</div>
+        </div>
+      </div>
+      <div style="margin-top:4px;font-family:var(--font-mono);font-size:10px;color:var(--muted);">
+        ${triggerReady
+          ? '<span style="color:var(--yellow);">🎯트레일링 발동 | 고점대비 ' + dropFromHigh.toFixed(2) + '%</span>'
+          : '<span>손절선: ' + (h.avgPrice * 0.95).toLocaleString('ko-KR') + '원 (-5%)</span>'}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── 종목 선택 ───────────────────────────
+function selectCoin(market, name, symbol) {
+  selectedCoin = market;
+  document.querySelectorAll('.coin-card').forEach(c => c.classList.remove('active'));
+  document.getElementById('card-'+market).classList.add('active');
+  document.getElementById('detail-name').textContent = name + ' (' + symbol + ')';
+  document.getElementById('ai-target').textContent = symbol;
+  document.getElementById('data-points').textContent = priceHistory[market].length;
+  if (priceData[market]) updateDetail(priceData[market]);
+  drawChart();
+}
+
+// ── 코인 목록 렌더링 ─────────────────────
+let coinFilter = '';
+function filterCoins(val) {
+  coinFilter = val.toUpperCase();
+  renderCoinList();
+}
+
+function renderCoinList() {
+  const container = document.getElementById('coin-list-container');
+  if (!container) return;
+  const filtered = coinFilter
+    ? COINS.filter(m => m.includes(coinFilter))
+    : COINS;
+
+  document.getElementById('coin-count').textContent = COINS.length + '개';
+
+  container.innerHTML = filtered.slice(0, 80).map((m, idx) => {
+    const sym = m.split('-')[1];
+    const isFirst = idx === 0 && !coinFilter;
+    const t = priceData[m];
+    const price = t ? fmtP(t.trade_price) : '로딩중...';
+    const rate = t ? (t.signed_change_rate * 100).toFixed(2) : '--';
+    const isUp = t ? t.signed_change_rate >= 0 : true;
+    return `<div class="coin-card ${isFirst ? 'active' : ''}" id="card-${m}" onclick="selectCoin('${m}','${sym}','${sym}')">
+      <div class="coin-top">
+        <div class="coin-name">${sym}</div>
+        <div class="coin-price ${isUp ? 'pos' : 'neg'}" id="price-${m}">${price}</div>
+      </div>
+      <div class="coin-mid">
+        <span class="coin-badge">UPBIT</span>
+        <span class="coin-change ${isUp ? 'pos' : 'neg'}" id="change-${m}">${t ? (isUp ? '▲ +' : '▼ ') + rate + '%' : '--'}</span>
+      </div>
+      <div class="signal-bar">
+        <span class="signal-label" id="siglbl-${m}" style="color:var(--muted)">분석중</span>
+        <div class="signal-track"><div class="signal-fill fill-hold" id="sigbar-${m}" style="width:50%"></div></div>
+        <span style="font-family:var(--font-mono);font-size:10px;color:var(--muted)" id="sigpct-${m}">--</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  if (filtered.length > 80) {
+    container.innerHTML += `<div style="padding:10px;text-align:center;font-size:11px;color:var(--muted);font-family:var(--font-mono);">검색으로 ${filtered.length}개 중 80개 표시 중</div>`;
+  }
+}
+
+// ── 업비트 API 호출 ─────────────────────
+async function fetchTickers() {
+  if (!COINS_LOADED) return;
+  try {
+    // 업비트 API는 한번에 최대 100개 → 배치 처리
+    const BATCH = 100;
+    for (let i = 0; i < COINS.length; i += BATCH) {
+      const batch = COINS.slice(i, i + BATCH);
+      const res = await fetch('https://api.upbit.com/v1/ticker?markets=' + batch.join(','));
+      if (!res.ok) continue;
+      const data = await res.json();
+      data.forEach(ticker => {
+        const prev = priceData[ticker.market];
+        priceData[ticker.market] = ticker;
+        if (!priceHistory[ticker.market]) priceHistory[ticker.market] = [];
+        priceHistory[ticker.market].push(ticker.trade_price);
+        if (priceHistory[ticker.market].length > 100) priceHistory[ticker.market].shift();
+        updateCoinCard(ticker, prev);
+      });
+    }
+
+    if (priceData[selectedCoin]) updateDetail(priceData[selectedCoin]);
+    drawChart();
+    document.getElementById('last-time').textContent = new Date().toTimeString().slice(0,8);
+  } catch(e) {
+    document.getElementById('last-time').textContent = '연결 오류';
+  }
+}
+
+// ── 모바일 탭 전환 ──────────────────────
+const isMobile = () => window.innerWidth <= 768;
+
+function switchTab(tab) {
+  if (!isMobile()) return;
+
+  // 탭 버튼 활성화
+  document.querySelectorAll('.mobile-tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+
+  // 패널 전환
+  const panels = {
+    'portfolio': 'panel-portfolio',
+    'chart':     'panel-chart',
+    'trade':     'panel-chart',   // 매매는 차트 패널 안에 있음
+    'ai':        'panel-ai'
+  };
+
+  // 모바일에서 패널 숨기기/보이기
+  ['panel-portfolio','panel-chart','panel-ai'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+  });
+
+  const targetId = panels[tab];
+  const target = document.getElementById(targetId);
+  if (target) {
+    target.classList.add('active');
+    // 매매 탭이면 매매 버튼으로 스크롤
+    if (tab === 'trade') {
+      setTimeout(() => {
+        const tradeEl = document.querySelector('.trade-wrap');
+        if (tradeEl) tradeEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }
+}
+
+// 모바일에서 탭바 표시, PC에서 숨기기
+function handleResize() {
+  const tabs = document.getElementById('mobile-tabs');
+  if (!tabs) return;
+  if (isMobile()) {
+    tabs.style.display = 'flex';
+    // 모바일: 처음엔 차트+매매 패널만 보이게
+    document.getElementById('panel-portfolio').classList.remove('active');
+    document.getElementById('panel-chart').classList.add('active');
+    document.getElementById('panel-ai').classList.remove('active');
+    document.querySelectorAll('.mobile-tab')[1].classList.add('active');
+    document.querySelectorAll('.mobile-tab')[0].classList.remove('active');
+  } else {
+    tabs.style.display = 'none';
+    // PC: 모든 패널 보이게
+    ['panel-portfolio','panel-chart','panel-ai'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('active');
+    });
+  }
+}
+
+// ── 시작 ────────────────────────────────
+(async () => {
+  await loadAllCoins();     // 1. 전체 코인 목록 로드
+  fetchTickers();           // 2. 첫 가격 조회
+  setInterval(fetchTickers, 5000);  // 3. 5초마다 갱신 (전체 코인이라 간격 늘림)
+})();
+window.addEventListener('resize', () => { drawChart(); handleResize(); });
+handleResize(); // 초기 실행
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(() => console.log('AI.TRADE PWA 준비 완료!'))
+      .catch(err => console.log('SW 등록 실패:', err));
+  });
+}
+</script>
+</body>
+</html>
