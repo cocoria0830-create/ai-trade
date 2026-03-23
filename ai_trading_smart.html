@@ -539,7 +539,8 @@ async function loadAllCoins() {
     renderCoinList();
 
     // 2단계: 전체 코인 목록 백그라운드 로드
-    const res = await fetch('https://api.upbit.com/v1/market/all?isDetails=false');
+    const PROXY = 'https://corsproxy.io/?url=';
+    const res = await fetch(PROXY + encodeURIComponent('https://api.upbit.com/v1/market/all?isDetails=false'));
     const data = await res.json();
     const allCoins = data
       .filter(m => m.market.startsWith('KRW-'))
@@ -1363,7 +1364,10 @@ async function fetchTickers() {
   if (!COINS_LOADED) return;
   try {
     // 주요 코인 20개 먼저 빠르게 (차트/AI분석용)
-    const majorRes = await fetch('https://api.upbit.com/v1/ticker?markets=' + MAJOR_COINS.join(','));
+    // CORS 프록시 (GitHub Pages에서 업비트 직접 호출 막힘 해결)
+    const PROXY = 'https://corsproxy.io/?url=';
+    const UPBIT = 'https://api.upbit.com';
+    const majorRes = await fetch(PROXY + encodeURIComponent(UPBIT + '/v1/ticker?markets=' + MAJOR_COINS.join(',')));
     if (majorRes.ok) {
       const majorData = await majorRes.json();
       majorData.forEach(ticker => {
@@ -1382,7 +1386,7 @@ async function fetchTickers() {
     const BATCH = 100;
     for (let i = MAJOR_COINS.length; i < COINS.length; i += BATCH) {
       const batch = COINS.slice(i, i + BATCH);
-      const res = await fetch('https://api.upbit.com/v1/ticker?markets=' + batch.join(','));
+      const res = await fetch(PROXY + encodeURIComponent(UPBIT + '/v1/ticker?markets=' + batch.join(',')));
       if (!res.ok) continue;
       const data = await res.json();
       data.forEach(ticker => {
